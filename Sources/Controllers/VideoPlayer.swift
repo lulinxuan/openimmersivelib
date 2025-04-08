@@ -107,6 +107,8 @@ public class VideoPlayer: Sendable {
     public let player = AVPlayer()
     public let videoMaterial: VideoMaterial
     
+    private var subtitleEntries: [SubtitleEntry] = []
+
     //MARK: Public methods
     /// Public initializer for visibility.
     public init(title: String = "", details: String = "", duration: Double = 0, paused: Bool = false, buffering: Bool = false, hasReachedEnd: Bool = false, aspectRatio: Float? = nil, horizontalFieldOfView: Float? = nil, bitrate: Double = 0, shouldShowControlPanel: Bool = true, currentTime: Double = 0, scrubState: VideoPlayer.ScrubState = .notScrubbing, timeObserver: Any? = nil, durationObserver: NSKeyValueObservation? = nil, bufferingObserver: NSKeyValueObservation? = nil, dismissControlPanelTask: Task<Void, Never>? = nil) {
@@ -171,7 +173,7 @@ public class VideoPlayer: Sendable {
         
         title = stream.title
         details = stream.details
-        
+        self.loadSubtitles(from: stream)
         let asset = AVURLAsset(url: stream.url)
         let playerItem = AVPlayerItem(asset: asset)
         playerItem.preferredPeakBitRate = 200_000_000 // 200 Mbps LFG!
@@ -427,5 +429,32 @@ public class VideoPlayer: Sendable {
     private func cancelControlPanelTask() {
         dismissControlPanelTask?.cancel()
         dismissControlPanelTask = nil
+    }
+    
+    private func loadSubtitles(from model: StreamModel) {
+        if let srt = model.strFile {
+            SubtitleLoader.load(from: srt, format: .srt) { entries in
+                DispatchQueue.main.async {
+                    self.subtitleEntries = entries
+                }
+            }
+        } else if let vtt = model.vttFile {
+            SubtitleLoader.load(from: vtt, format: .vtt) { entries in
+                DispatchQueue.main.async {
+                    self.subtitleEntries = entries
+                }
+            }
+        }
+    }
+    
+    public func getCurrentSubtitle() -> String {
+        let currentTime = self.currentTime
+        if let subtitle = subtitleEntries.first(where: {
+            currentTime >= $0.startTime && currentTime <= $0.endTime
+        }) {
+            return subtitle.text
+        } else {
+            return ""
+        }
     }
 }

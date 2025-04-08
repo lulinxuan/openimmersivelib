@@ -21,6 +21,10 @@ public struct StreamModel: Codable {
     public var forceFieldOfView: Float?
     /// True if the media required user permission for access.
     public var isSecurityScoped: Bool
+    /// URL to a str file
+    public let strFile: URL?
+    /// URL to a vtt file
+    public let vttFile: URL?
     
     /// Public initializer for visibility.
     /// - Parameters:
@@ -30,13 +34,19 @@ public struct StreamModel: Codable {
     ///   - fallbackFieldOfView: the fallback horizontal field of view of the video, if cannot be determined from the media, in degrees (default 180.0).
     ///   - forceFieldOfView: optional forced horizontal field of view of the video, if needed to override the value encoded in the media, in degrees (default nil).
     ///   - isSecurityScoped: true if the media required user permission for access (default false).
-    public init(title: String, details: String, url: URL, fallbackFieldOfView: Float = 180.0, forceFieldOfView: Float? = nil, isSecurityScoped: Bool = false) {
+    ///   - strFile: URL to a str file
+    ///   - vttFile: URL to a vtt file
+
+    public init(title: String, details: String, url: URL, fallbackFieldOfView: Float = 180.0, forceFieldOfView: Float? = nil, isSecurityScoped: Bool = false, strFile: URL? = nil, vttFile: URL? = nil) {
+        precondition(!(strFile != nil && vttFile != nil), "Only one of strFile or vttFile can be provided.")
         self.title = title
         self.details = details
         self.url = url
         self.fallbackFieldOfView = fallbackFieldOfView
         self.forceFieldOfView = forceFieldOfView
         self.isSecurityScoped = isSecurityScoped
+        self.strFile = strFile
+        self.vttFile = vttFile
     }
 }
 
