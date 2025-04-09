@@ -250,7 +250,7 @@ fileprivate struct SubtitleButtons: View {
                 }
             }
             
-            if videoPlayer.subtitleLanguage.count > 1 {
+            if videoPlayer.availableLanguages().count > 1 {
                 HStack {
                     Picker("", selection: $language) {
                         ForEach(videoPlayer.availableLanguages(), id: \.self) { l in
