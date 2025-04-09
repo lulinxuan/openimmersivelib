@@ -216,35 +216,54 @@ fileprivate struct PlaybackButtons: View {
 /// Control subtitles
 fileprivate struct SubtitleButtons: View {
     @State var subtitleColor = Color.white
+    @State var language = ""
 
     var videoPlayer: VideoPlayer
     
     var body: some View {
         HStack {
-            Button("", systemImage: "minus.circle.fill") {
-                videoPlayer.minusFont()
+            HStack {
+                Button("", systemImage: "minus.circle.fill") {
+                    videoPlayer.minusFont()
+                }
+                .controlSize(.extraLarge)
+                .tint(.clear)
+                .frame(width: 100)
+                
+                Button("", systemImage: "plus.circle.fill") {
+                    videoPlayer.plusFont()
+                }
+                .controlSize(.extraLarge)
+                .tint(.clear)
+                .frame(width: 100)
+                
+                Picker("", selection: $subtitleColor) {
+                    Text("White").tag(Color.white)
+                    Text("Yellow").tag(Color.yellow)
+                    Text("Green").tag(Color.green)
+                    Text("Red").tag(Color.red)
+                    Text("Blue").tag(Color.blue)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: subtitleColor) { oldValue, newValue in
+                    videoPlayer.changeSubtitleColor(newValue)
+                }
             }
-            .controlSize(.extraLarge)
-            .tint(.clear)
-            .frame(width: 100)
             
-            Button("", systemImage: "plus.circle.fill") {
-                videoPlayer.plusFont()
-            }
-            .controlSize(.extraLarge)
-            .tint(.clear)
-            .frame(width: 100)
-            
-            Picker("", selection: $subtitleColor) {
-                Text("White").tag(Color.white)
-                Text("Yellow").tag(Color.yellow)
-                Text("Green").tag(Color.green)
-                Text("Red").tag(Color.red)
-                Text("Blue").tag(Color.blue)
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: subtitleColor) { oldValue, newValue in
-                videoPlayer.changeSubtitleColor(newValue)
+            if videoPlayer.subtitleLanguage.count > 1 {
+                HStack {
+                    Picker("", selection: $language) {
+                        ForEach(videoPlayer.availableLanguages(), id: \.self) { l in
+                            Text(l).tag(l)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: language) { oldValue, newValue in
+                        videoPlayer.changeLanguage(newValue)
+                    }
+                }.onAppear() {
+                    language = videoPlayer.subtitleLanguage
+                }
             }
         }
     }

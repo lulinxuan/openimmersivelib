@@ -103,16 +103,18 @@ public class VideoPlayer: Sendable {
     private var playlistReader: PlaylistReader?
     
     //Mark: Subtitle variables
-    private(set) var isSubtitleEnabled: Bool = true
+    private(set) var isSubtitleEnabled: Bool = false
     private(set) var subtitleFontSize: CGFloat = 28
     private(set) var subtitleColor: Color = .white
-    
+    private(set) var subtitleLanguage: String = ""
+
     //MARK: Immutable variables
     /// The video player
     public let player = AVPlayer()
     public let videoMaterial: VideoMaterial
     
-    private var subtitleEntries: [SubtitleEntry] = []
+    private var currentSubtitleEntries: [SubtitleEntry] = []
+    private var languageToSubtitleEntries: [String:[SubtitleEntry]] = [:]
 
     //MARK: Public methods
     /// Public initializer for visibility.
@@ -337,6 +339,15 @@ public class VideoPlayer: Sendable {
         subtitleColor = color
     }
     
+    public func changeLanguage(_ language: String) {
+        subtitleLanguage = language
+        currentSubtitleEntries = languageToSubtitleEntries[subtitleLanguage] ?? []
+    }
+    
+    public func availableLanguages() -> [String] {
+        return languageToSubtitleEntries.keys.sorted()
+    }
+    
     /// Stop media playback and unload the current media.
     public func stop() {
         tearDownObservers()
@@ -462,17 +473,32 @@ public class VideoPlayer: Sendable {
         dismissControlPanelTask = nil
     }
     
+    @MainActor
+    private func updateSubtitleEntries(language: String, entries: [SubtitleEntry]) {
+        self.languageToSubtitleEntries[language] = entries
+        if self.subtitleLanguage.isEmpty {
+            self.subtitleLanguage = language
+            self.currentSubtitleEntries = entries
+            self.isSubtitleEnabled = true
+        }
+    }
+    
     private func loadSubtitles(from model: StreamModel) {
-        if let srt = model.strFile {
-            SubtitleLoader.load(from: srt, format: .srt) { entries in
-                DispatchQueue.main.async {
-                    self.subtitleEntries = entries
+        self.languageToSubtitleEntries.removeAll()
+        if let srts = model.languageToSrtFiles {
+            for p in srts {
+                SubtitleLoader.load(from: p.value, format: .srt) { entries in
+                    DispatchQueue.main.async {
+                        self.updateSubtitleEntries(language: p.key, entries: entries)
+                    }
                 }
             }
-        } else if let vtt = model.vttFile {
-            SubtitleLoader.load(from: vtt, format: .vtt) { entries in
-                DispatchQueue.main.async {
-                    self.subtitleEntries = entries
+        } else if let vtts = model.languageToVttFiles {
+            for p in vtts {
+                SubtitleLoader.load(from: p.value, format: .vtt) { entries in
+                    DispatchQueue.main.async {
+                        self.updateSubtitleEntries(language: p.key, entries: entries)
+                    }
                 }
             }
         }
@@ -480,7 +506,7 @@ public class VideoPlayer: Sendable {
     
     public func getCurrentSubtitle() -> String {
         let currentTime = self.currentTime
-        if let subtitle = subtitleEntries.first(where: {
+        if let subtitle = currentSubtitleEntries.first(where: {
             currentTime >= $0.startTime && currentTime <= $0.endTime
         }) {
             return subtitle.text
