@@ -12,7 +12,7 @@ import RealityKit
 public struct ControlPanel: View {
     /// The singleton video player control interface.
     @Binding var videoPlayer: VideoPlayer
-    
+    @State var isShowingSubtitleSection: Bool = true
     /// The callback to execute when the user closes the immersive player.
     let closeAction: (() -> Void)?
     
@@ -37,6 +37,20 @@ public struct ControlPanel: View {
                     .frame(width: 100)
                     
                     MediaInfo(videoPlayer: $videoPlayer)
+                    
+                    Button("", systemImage: "captions.bubble") {
+                        videoPlayer.toggleSubtitle()
+                    }
+                    .symbolRenderingMode(videoPlayer.isSubtitleEnabled ? .palette : .hierarchical)
+                    .foregroundStyle(.white, .blue)
+                    .controlSize(.extraLarge)
+                    .tint(.clear)
+                    .frame(width: 100)
+                }
+                
+                if videoPlayer.isSubtitleEnabled {
+                    SubtitleButtons(videoPlayer: videoPlayer)
+                        .animation(.easeInOut(duration: 0.2), value: videoPlayer.isSubtitleEnabled)
                 }
                 
                 HStack {
@@ -195,6 +209,43 @@ fileprivate struct PlaybackButtons: View {
             .controlSize(.extraLarge)
             .tint(.clear)
             .frame(width: 100)
+        }
+    }
+}
+
+/// Control subtitles
+fileprivate struct SubtitleButtons: View {
+    @State var subtitleColor = Color.white
+
+    var videoPlayer: VideoPlayer
+    
+    var body: some View {
+        HStack {
+            Button("", systemImage: "minus.circle.fill") {
+                videoPlayer.minusFont()
+            }
+            .controlSize(.extraLarge)
+            .tint(.clear)
+            .frame(width: 100)
+            
+            Button("", systemImage: "plus.circle.fill") {
+                videoPlayer.plusFont()
+            }
+            .controlSize(.extraLarge)
+            .tint(.clear)
+            .frame(width: 100)
+            
+            Picker("", selection: $subtitleColor) {
+                Text("White").tag(Color.white)
+                Text("Yellow").tag(Color.yellow)
+                Text("Green").tag(Color.green)
+                Text("Red").tag(Color.red)
+                Text("Blue").tag(Color.blue)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: subtitleColor) { oldValue, newValue in
+                videoPlayer.changeSubtitleColor(newValue)
+            }
         }
     }
 }

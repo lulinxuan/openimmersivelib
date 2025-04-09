@@ -86,12 +86,12 @@ public struct ImmersivePlayer: View {
         } attachments: {
             Attachment(id: "ControlPanel") {
                 VStack {
-                    if !currentSubtitle.isEmpty {
+                    if videoPlayer.isSubtitleEnabled && !currentSubtitle.isEmpty {
                         Text(currentSubtitle)
                             .padding()
                             .background(.black.opacity(0.6))
-                            .foregroundColor(.white)
-                            .font(.title)
+                            .foregroundColor(videoPlayer.subtitleColor)
+                            .font(.system(size: videoPlayer.subtitleFontSize))
                             .cornerRadius(12)
                             .multilineTextAlignment(.center)
                             .padding(.bottom, 60)
@@ -131,9 +131,11 @@ public struct ImmersivePlayer: View {
         )
         .task {
             while true {
-                let subtitle = videoPlayer.getCurrentSubtitle()
-                if currentSubtitle != subtitle {
-                    currentSubtitle = subtitle
+                if videoPlayer.isSubtitleEnabled {
+                    let subtitle = videoPlayer.getCurrentSubtitle()
+                    if currentSubtitle != subtitle {
+                        currentSubtitle = subtitle
+                    }
                 }
                 try? await Task.sleep(nanoseconds: 200_000_000) // 每 0.2 秒检测一次
             }

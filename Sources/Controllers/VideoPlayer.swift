@@ -102,6 +102,11 @@ public class VideoPlayer: Sendable {
     private var dismissControlPanelTask: Task<Void, Never>?
     private var playlistReader: PlaylistReader?
     
+    //Mark: Subtitle variables
+    private(set) var isSubtitleEnabled: Bool = true
+    private(set) var subtitleFontSize: CGFloat = 28
+    private(set) var subtitleColor: Color = .white
+    
     //MARK: Immutable variables
     /// The video player
     public let player = AVPlayer()
@@ -150,6 +155,13 @@ public class VideoPlayer: Sendable {
     public func toggleControlPanel() {
         withAnimation {
             shouldShowControlPanel.toggle()
+        }
+    }
+    
+    /// Instruct the UI to toggle the visibility of the subtitle.
+    public func toggleSubtitle() {
+        withAnimation {
+            isSubtitleEnabled.toggle()
         }
     }
     
@@ -304,6 +316,25 @@ public class VideoPlayer: Sendable {
         hasReachedEnd = false
         player.seek(to: newTime)
         restartControlPanelTask()
+    }
+    
+    /// Plus font
+    public func plusFont() {
+        if subtitleFontSize < 48 {
+            subtitleFontSize += 2
+        }
+    }
+    
+    /// Minus font
+    public func minusFont() {
+        if subtitleFontSize > 16 {
+            subtitleFontSize -= 2
+        }
+    }
+    
+    /// Change Subtitle color
+    public func changeSubtitleColor(_ color: Color) {
+        subtitleColor = color
     }
     
     /// Stop media playback and unload the current media.
