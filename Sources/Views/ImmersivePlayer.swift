@@ -83,7 +83,7 @@ public struct ImmersivePlayer: View {
         } attachments: {
             Attachment(id: "ControlPanel") {
                 VStack {
-                    if let subtitle = videoPlayer.currentSubtitle, videoPlayer.isSubtitleEnabled && !subtitle.isEmpty {
+                    if let subtitle = videoPlayer.currentSubtitle, videoPlayer.shouldShowSubtitles && !subtitle.isEmpty {
                         Text(subtitle)
                             .padding()
                             .background(.black.opacity(0.6))

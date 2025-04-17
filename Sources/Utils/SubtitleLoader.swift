@@ -20,7 +20,9 @@ enum SubtitleFormat {
 
 class SubtitleLoader {
     
-    static func load(from url: URL, format: SubtitleFormat, completion: @escaping @Sendable ([SubtitleEntry]) -> Void) {
+    private static let TIME_SEPARATOR = " --> "
+    
+    static func load(from url: URL, format: SubtitleFormat, completion: @escaping @Sendable ([SubtitleEntry]?) -> Void) {
         if url.isFileURL {
             // local file
             if let content = try? String(contentsOf: url, encoding: .utf8) {
@@ -28,14 +30,14 @@ class SubtitleLoader {
                 completion(result)
             } else {
                 print("Failed to read local subtitle file")
-                completion([])
+                completion(nil)
             }
         } else {
             // remote file
             let task = URLSession.shared.dataTask(with: url) { data, response, error in
                 guard let data = data, let content = String(data: data, encoding: .utf8) else {
                     print("Failed to download subtitle from \(url)")
-                    completion([])
+                    completion(nil)
                     return
                 }
                 let result = format == .srt ? parseSRT(content) : parseVTT(content)
@@ -54,7 +56,7 @@ class SubtitleLoader {
             guard lines.count >= 3 else { continue }
 
             let timeLine = lines[1]
-            let timeComponents = timeLine.components(separatedBy: " --> ")
+            let timeComponents = timeLine.components(separatedBy: TIME_SEPARATOR)
             guard timeComponents.count == 2,
                   let start = parseTime(timeComponents[0]),
                   let end = parseTime(timeComponents[1]) else {
@@ -69,33 +71,33 @@ class SubtitleLoader {
     }
 
     internal static func parseVTT(_ content: String) -> [SubtitleEntry] {
-        let lines = content.components(separatedBy: "\n")
+        let blocks = content.components(separatedBy: "\n\n")
         var entries: [SubtitleEntry] = []
-        var index = 0
 
-        while index < lines.count {
-            if lines[index].contains("-->") {
-                let timeComponents = lines[index].components(separatedBy: " --> ")
-                guard timeComponents.count == 2,
-                      let start = parseTime(timeComponents[0]),
-                      let end = parseTime(timeComponents[1]) else {
-                    index += 1
-                    continue
+        for block in blocks {
+            let lines = block.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            guard lines.count >= 3 else { continue }
+            
+            var timeLineIndex = -1
+            for i in 0..<lines.count {
+                if lines[i].contains(TIME_SEPARATOR) {
+                    timeLineIndex = i
+                    break
                 }
-
-                var textLines: [String] = []
-                index += 1
-                while index < lines.count && !lines[index].isEmpty {
-                    textLines.append(lines[index])
-                    index += 1
-                }
-
-                let text = textLines.joined(separator: "\n")
-                entries.append(SubtitleEntry(startTime: start, endTime: end, text: text))
             }
-            index += 1
-        }
+            guard timeLineIndex >= 0 else { continue }
 
+            let timeLine = lines[timeLineIndex]
+            let timeComponents = timeLine.components(separatedBy: TIME_SEPARATOR)
+            guard timeComponents.count == 2,
+                  let start = parseTime(timeComponents[0]),
+                  let end = parseTime(timeComponents[1]) else {
+                continue
+            }
+
+            let text = lines[(timeLineIndex+1)...].joined(separator: "\n")
+            entries.append(SubtitleEntry(startTime: start, endTime: end, text: text))
+        }
         return entries
     }
 

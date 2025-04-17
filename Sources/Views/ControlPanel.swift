@@ -39,18 +39,18 @@ public struct ControlPanel: View {
                     MediaInfo(videoPlayer: $videoPlayer)
                     
                     Button("", systemImage: "captions.bubble") {
-                        videoPlayer.toggleSubtitle()
+                        videoPlayer.toggleSubtitles()
                     }
-                    .symbolRenderingMode(videoPlayer.isSubtitleEnabled ? .palette : .hierarchical)
+                    .symbolRenderingMode(videoPlayer.shouldShowSubtitles ? .palette : .hierarchical)
                     .foregroundStyle(.white, .blue)
                     .controlSize(.extraLarge)
                     .tint(.clear)
                     .frame(width: 100)
                 }
                 
-                if videoPlayer.isSubtitleEnabled {
+                if videoPlayer.shouldShowSubtitles {
                     SubtitleButtons(videoPlayer: videoPlayer)
-                        .animation(.easeInOut(duration: 0.2), value: videoPlayer.isSubtitleEnabled)
+                        .animation(.easeInOut(duration: 0.2), value: videoPlayer.shouldShowSubtitles)
                 }
                 
                 HStack {
@@ -263,7 +263,7 @@ fileprivate struct SubtitleButtons: View {
                 }
             }
         }.onAppear() {
-            self.language = videoPlayer.subtitleLanguage
+            self.language = videoPlayer.currentSubtitlesLanguage
             self.subtitleColor = videoPlayer.subtitleColor
         }
     }

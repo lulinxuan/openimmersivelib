@@ -96,22 +96,28 @@ public class VideoPlayer: Sendable {
        }
     }
     
+    //Mark: Subtitle variables
+    /// Controls whether to show subtitles. Will be false if no subtitle file is provided
+    private(set) var shouldShowSubtitles: Bool = false
+    /// Font size of subtitle
+    private(set) var subtitleFontSize: CGFloat = 28
+    /// Color of subtitle
+    private(set) var subtitleColor: Color = .white
+    /// Current language of subtitle
+    private(set) var currentSubtitlesLanguage: String = ""
+    /// Current line of subtitle showing
+    private(set) var currentSubtitle: String? = nil
+    
     //MARK: Private variables
     private var timeObserver: Any?
     private var durationObserver: NSKeyValueObservation?
     private var bufferingObserver: NSKeyValueObservation?
     private var dismissControlPanelTask: Task<Void, Never>?
     private var playlistReader: PlaylistReader?
-    
-    //Mark: Subtitle variables
-    private(set) var isSubtitleEnabled: Bool = false
-    private(set) var subtitleFontSize: CGFloat = 28
-    private(set) var subtitleColor: Color = .white
-    private(set) var subtitleLanguage: String = ""
     private var currentSubtitleIndex: Int? = nil
-    public var currentSubtitle: String? = nil
     private var currentSubtitleEntries: [SubtitleEntry] = []
-    private var languageToSubtitleEntries: [String:[SubtitleEntry]] = [:]
+    private var languageToSubtitleFiles: [SubtitleFileType: [String: URL]]? = nil
+    private var languageToSubtitleEntries: [String:[SubtitleEntry]?] = [:]
 
     //MARK: Immutable variables
     /// The video player
@@ -163,10 +169,10 @@ public class VideoPlayer: Sendable {
         }
     }
     
-    /// Instruct the UI to toggle the visibility of the subtitle.
-    public func toggleSubtitle() {
+    /// Instruct the UI to toggle the visibility of the subtitles.
+    public func toggleSubtitles() {
         withAnimation {
-            isSubtitleEnabled.toggle()
+            shouldShowSubtitles.toggle()
         }
     }
     
@@ -190,7 +196,10 @@ public class VideoPlayer: Sendable {
         
         title = stream.title
         details = stream.details
-        self.loadSubtitles(from: stream)
+        self.languageToSubtitleFiles = stream.languageToSubtitleFiles
+        if let firstLanguage = self.languageToSubtitleFiles?.first?.value.first?.key {
+            self.loadSubtitles(language: firstLanguage)
+        }
         let asset = AVURLAsset(url: stream.url)
         let playerItem = AVPlayerItem(asset: asset)
         playerItem.preferredPeakBitRate = 200_000_000 // 200 Mbps LFG!
@@ -346,12 +355,16 @@ public class VideoPlayer: Sendable {
     }
     
     public func changeLanguage(_ language: String) {
-        subtitleLanguage = language
-        currentSubtitleEntries = languageToSubtitleEntries[subtitleLanguage] ?? []
+        self.currentSubtitlesLanguage = language
+        if let entries = languageToSubtitleEntries[currentSubtitlesLanguage], entries != nil {
+            self.currentSubtitleEntries = entries!
+        } else {
+            self.loadSubtitles(language: language)
+        }
     }
     
     public func availableLanguages() -> [String] {
-        return languageToSubtitleEntries.keys.sorted()
+        return self.languageToSubtitleFiles?.first?.value.keys.sorted() ?? []
     }
     
     /// Stop media playback and unload the current media.
@@ -480,34 +493,33 @@ public class VideoPlayer: Sendable {
         dismissControlPanelTask = nil
     }
     
-    @MainActor
     private func updateSubtitleEntries(language: String, entries: [SubtitleEntry]) {
         self.languageToSubtitleEntries[language] = entries
-        if self.subtitleLanguage.isEmpty {
-            self.subtitleLanguage = language
+        if self.currentSubtitlesLanguage.isEmpty {
+            self.currentSubtitlesLanguage = language
             self.currentSubtitleEntries = entries
-            self.isSubtitleEnabled = true
+            self.shouldShowSubtitles = true
         }
     }
     
-    private func loadSubtitles(from model: StreamModel) {
+    private func loadSubtitles(language: String) {
         self.languageToSubtitleEntries.removeAll()
-        if model.languageToSubtitleFiles == nil {
+        if self.languageToSubtitleFiles == nil {
             return
         }
-        if let srts = model.languageToSubtitleFiles![.SRT] {
-            for p in srts {
-                SubtitleLoader.load(from: p.value, format: .srt) { entries in
-                    DispatchQueue.main.async {
-                        self.updateSubtitleEntries(language: p.key, entries: entries)
+        if let srts = self.languageToSubtitleFiles![.SRT] {
+            SubtitleLoader.load(from: srts[language]!, format: .srt) { entries in
+                Task { @MainActor in
+                    if entries != nil {
+                        self.updateSubtitleEntries(language: language, entries: entries!)
                     }
                 }
             }
-        } else if let vtts = model.languageToSubtitleFiles![.VTT] {
-            for p in vtts {
-                SubtitleLoader.load(from: p.value, format: .vtt) { entries in
-                    DispatchQueue.main.async {
-                        self.updateSubtitleEntries(language: p.key, entries: entries)
+        } else if let vtts = self.languageToSubtitleFiles![.VTT] {
+            SubtitleLoader.load(from: vtts[language]!, format: .vtt) { entries in
+                Task { @MainActor in
+                    if entries != nil {
+                        self.updateSubtitleEntries(language: language, entries: entries!)
                     }
                 }
             }
@@ -516,7 +528,7 @@ public class VideoPlayer: Sendable {
     }
     
     private func updateCurrentSubtitleIndex() {
-        if !self.isSubtitleEnabled {
+        if !self.shouldShowSubtitles {
             return
         }
         let currentTime = self.currentTime
@@ -532,7 +544,7 @@ public class VideoPlayer: Sendable {
     }
     
     private func updateCurrentSubtitleDuringPlay(){
-        if !self.isSubtitleEnabled {
+        if !self.shouldShowSubtitles {
             return
         }
         let currentTime = self.currentTime
