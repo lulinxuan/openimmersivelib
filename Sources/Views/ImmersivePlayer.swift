@@ -14,9 +14,6 @@ public struct ImmersivePlayer: View {
     /// The singleton video player control interface.
     @State var videoPlayer: VideoPlayer = VideoPlayer()
     
-    /// The current subtitle text
-    @State private var currentSubtitle: String = ""
-    
     /// The object managing the sphere or half-sphere displaying the video.
     // This needs to be a @State otherwise the video doesn't load.
     @State private(set) var videoScreen = VideoScreen()
@@ -86,8 +83,8 @@ public struct ImmersivePlayer: View {
         } attachments: {
             Attachment(id: "ControlPanel") {
                 VStack {
-                    if videoPlayer.isSubtitleEnabled && !currentSubtitle.isEmpty {
-                        Text(currentSubtitle)
+                    if let subtitle = videoPlayer.currentSubtitle, videoPlayer.isSubtitleEnabled && !subtitle.isEmpty {
+                        Text(subtitle)
                             .padding()
                             .background(.black.opacity(0.6))
                             .foregroundColor(videoPlayer.subtitleColor)
@@ -96,7 +93,7 @@ public struct ImmersivePlayer: View {
                             .multilineTextAlignment(.center)
                             .padding(.bottom, 60)
                             .transition(.opacity)
-                            .animation(.easeInOut(duration: 0.2), value: currentSubtitle)
+                            .animation(.easeInOut(duration: 0.2), value: videoPlayer.currentSubtitle)
                     }
                     
                     ControlPanel(videoPlayer: $videoPlayer, closeAction: closeAction)
@@ -129,17 +126,6 @@ public struct ImmersivePlayer: View {
                 videoPlayer.toggleControlPanel()
             }
         )
-        .task {
-            while true {
-                if videoPlayer.isSubtitleEnabled {
-                    let subtitle = videoPlayer.getCurrentSubtitle()
-                    if currentSubtitle != subtitle {
-                        currentSubtitle = subtitle
-                    }
-                }
-                try? await Task.sleep(nanoseconds: 200_000_000) // 每 0.2 秒检测一次
-            }
-        }
     }
     
     /// Programmatically generates the root entity for the RealityView scene, and positions it at `(0, 1.2, 0)`,

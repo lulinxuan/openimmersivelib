@@ -87,6 +87,7 @@ public class VideoPlayer: Sendable {
                   Task { @MainActor in
                       self?.scrubState = .notScrubbing
                       self?.restartControlPanelTask()
+                      self?.updateCurrentSubtitleIndex()
                   }
               }
               hasReachedEnd = false
@@ -107,15 +108,17 @@ public class VideoPlayer: Sendable {
     private(set) var subtitleFontSize: CGFloat = 28
     private(set) var subtitleColor: Color = .white
     private(set) var subtitleLanguage: String = ""
+    private var currentSubtitleIndex: Int? = nil
+    public var currentSubtitle: String? = nil
+    private var currentSubtitleEntries: [SubtitleEntry] = []
+    private var languageToSubtitleEntries: [String:[SubtitleEntry]] = [:]
 
     //MARK: Immutable variables
     /// The video player
     public let player = AVPlayer()
     public let videoMaterial: VideoMaterial
-    
-    private var currentSubtitleEntries: [SubtitleEntry] = []
-    private var languageToSubtitleEntries: [String:[SubtitleEntry]] = [:]
 
+    
     //MARK: Public methods
     /// Public initializer for visibility.
     public init(title: String = "", details: String = "", duration: Double = 0, paused: Bool = false, buffering: Bool = false, hasReachedEnd: Bool = false, aspectRatio: Float? = nil, horizontalFieldOfView: Float? = nil, bitrate: Double = 0, shouldShowControlPanel: Bool = true, currentTime: Double = 0, scrubState: VideoPlayer.ScrubState = .notScrubbing, timeObserver: Any? = nil, durationObserver: NSKeyValueObservation? = nil, bufferingObserver: NSKeyValueObservation? = nil, dismissControlPanelTask: Task<Void, Never>? = nil) {
@@ -284,6 +287,7 @@ public class VideoPlayer: Sendable {
     public func play() {
         if hasReachedEnd {
             player.seek(to: CMTime.zero)
+            self.updateCurrentSubtitleIndex()
         }
         player.play()
         paused = false
@@ -307,6 +311,7 @@ public class VideoPlayer: Sendable {
         hasReachedEnd = false
         player.seek(to: newTime)
         restartControlPanelTask()
+        self.updateCurrentSubtitleIndex()
     }
     
     /// Jump forward 15 seconds in media playback.
@@ -318,6 +323,7 @@ public class VideoPlayer: Sendable {
         hasReachedEnd = false
         player.seek(to: newTime)
         restartControlPanelTask()
+        self.updateCurrentSubtitleIndex()
     }
     
     /// Plus font
@@ -390,6 +396,7 @@ public class VideoPlayer: Sendable {
                         switch self.scrubState {
                         case .notScrubbing:
                             self.currentTime = time.seconds
+                            self.updateCurrentSubtitleDuringPlay()
                             break
                         case .scrubStarted: return
                         case .scrubEnded: return
@@ -485,7 +492,10 @@ public class VideoPlayer: Sendable {
     
     private func loadSubtitles(from model: StreamModel) {
         self.languageToSubtitleEntries.removeAll()
-        if let srts = model.languageToSrtFiles {
+        if model.languageToSubtitleFiles == nil {
+            return
+        }
+        if let srts = model.languageToSubtitleFiles![.SRT] {
             for p in srts {
                 SubtitleLoader.load(from: p.value, format: .srt) { entries in
                     DispatchQueue.main.async {
@@ -493,7 +503,7 @@ public class VideoPlayer: Sendable {
                     }
                 }
             }
-        } else if let vtts = model.languageToVttFiles {
+        } else if let vtts = model.languageToSubtitleFiles![.VTT] {
             for p in vtts {
                 SubtitleLoader.load(from: p.value, format: .vtt) { entries in
                     DispatchQueue.main.async {
@@ -502,16 +512,46 @@ public class VideoPlayer: Sendable {
                 }
             }
         }
+        self.updateCurrentSubtitleIndex()
     }
     
-    public func getCurrentSubtitle() -> String {
+    private func updateCurrentSubtitleIndex() {
+        if !self.isSubtitleEnabled {
+            return
+        }
         let currentTime = self.currentTime
-        if let subtitle = currentSubtitleEntries.first(where: {
+        if let subtitleIndex = self.currentSubtitleEntries.firstIndex(where: {
             currentTime >= $0.startTime && currentTime <= $0.endTime
         }) {
-            return subtitle.text
+            self.currentSubtitleIndex = subtitleIndex
+            self.currentSubtitle = self.currentSubtitleEntries[subtitleIndex].text
         } else {
-            return ""
+            self.currentSubtitleIndex = nil
+            self.currentSubtitle = nil
+        }
+    }
+    
+    private func updateCurrentSubtitleDuringPlay(){
+        if !self.isSubtitleEnabled {
+            return
+        }
+        let currentTime = self.currentTime
+        if let index = self.currentSubtitleIndex {
+            let entry = self.currentSubtitleEntries[index]
+            if currentTime >= entry.startTime && currentTime <= entry.endTime {
+                // still showing same subtitle
+                return
+            }
+            
+            if self.currentSubtitleEntries.count > index + 1 && currentTime >= self.currentSubtitleEntries[index + 1].startTime && currentTime <= self.currentSubtitleEntries[index + 1].endTime {
+                
+                self.currentSubtitleIndex = index + 1
+                self.currentSubtitle = self.currentSubtitleEntries[index + 1].text
+                return
+            }
+            
+            // Index messed up, recalculate
+            self.updateCurrentSubtitleIndex()
         }
     }
 }

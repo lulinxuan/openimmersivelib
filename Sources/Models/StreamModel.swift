@@ -21,10 +21,8 @@ public struct StreamModel: Codable {
     public var forceFieldOfView: Float?
     /// True if the media required user permission for access.
     public var isSecurityScoped: Bool
-    /// Dicttionary of language label to srt subtitle
-    public let languageToSrtFiles: [String: URL]?
-    /// Dicttionary of language label to vtt subtitle
-    public let languageToVttFiles: [String: URL]?
+    /// Dicttionary of language label to subtitle
+    public let languageToSubtitleFiles: [SubtitleFileType: [String: URL]]?
     
     /// Public initializer for visibility.
     /// - Parameters:
@@ -34,19 +32,17 @@ public struct StreamModel: Codable {
     ///   - fallbackFieldOfView: the fallback horizontal field of view of the video, if cannot be determined from the media, in degrees (default 180.0).
     ///   - forceFieldOfView: optional forced horizontal field of view of the video, if needed to override the value encoded in the media, in degrees (default nil).
     ///   - isSecurityScoped: true if the media required user permission for access (default false).
-    ///   - languageToSrtFiles: a dict of language label -> srt URL
-    ///   - languageToVttFiles: a dict of language label -> vtt URL
+    ///   - languageToSubtitleFiles: a dict of language label -> subtitle URL
 
-    public init(title: String, details: String, url: URL, fallbackFieldOfView: Float = 180.0, forceFieldOfView: Float? = nil, isSecurityScoped: Bool = false, languageToSrtFiles: [String: URL]? = nil, languageToVttFiles: [String: URL]? = nil) {
-        precondition(!(languageToVttFiles != nil && languageToVttFiles != nil), "Only one of strFile or vttFile can be provided.")
+    public init(title: String, details: String, url: URL, fallbackFieldOfView: Float = 180.0, forceFieldOfView: Float? = nil, isSecurityScoped: Bool = false, languageToSubtitleFiles: [SubtitleFileType: [String: URL]]? = nil) {
+        precondition(languageToSubtitleFiles == nil || languageToSubtitleFiles?.count == 1, "Only one type of subtitle file can be provided.")
         self.title = title
         self.details = details
         self.url = url
         self.fallbackFieldOfView = fallbackFieldOfView
         self.forceFieldOfView = forceFieldOfView
         self.isSecurityScoped = isSecurityScoped
-        self.languageToSrtFiles = languageToSrtFiles
-        self.languageToVttFiles = languageToVttFiles
+        self.languageToSubtitleFiles = languageToSubtitleFiles
     }
 }
 
@@ -64,4 +60,10 @@ extension StreamModel: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id
     }
+}
+
+public enum SubtitleFileType: Codable {
+    case SRT
+    case VTT
+    case HLS
 }
