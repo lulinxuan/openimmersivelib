@@ -222,49 +222,49 @@ fileprivate struct SubtitleButtons: View {
     
     var body: some View {
         HStack {
-            HStack {
-                Button("", systemImage: "minus.circle.fill") {
-                    videoPlayer.minusFont()
-                }
-                .controlSize(.extraLarge)
-                .tint(.clear)
-                .frame(width: 100)
-                
-                Button("", systemImage: "plus.circle.fill") {
-                    videoPlayer.plusFont()
-                }
-                .controlSize(.extraLarge)
-                .tint(.clear)
-                .frame(width: 100)
-                
-                Picker("", selection: $subtitleColor) {
-                    Text("White").tag(Color.white)
-                    Text("Yellow").tag(Color.yellow)
-                    Text("Green").tag(Color.green)
-                    Text("Red").tag(Color.red)
-                    Text("Blue").tag(Color.blue)
-                }
-                .pickerStyle(.segmented)
-                .onChange(of: subtitleColor) { oldValue, newValue in
-                    videoPlayer.changeSubtitleColor(newValue)
-                }
+            Button("", systemImage: "minus.circle") {
+                videoPlayer.minusFont()
+            }
+            .controlSize(.extraLarge)
+            .tint(.clear)
+            .frame(width: 100)
+            
+            Text("\(Int(videoPlayer.subtitleFontSize))")
+                .font(.system(size: videoPlayer.subtitleFontSize))
+                        
+            Button("", systemImage: "plus.circle") {
+                videoPlayer.plusFont()
+            }
+            .controlSize(.extraLarge)
+            .tint(.clear)
+            .frame(width: 100)
+            
+            Picker("", selection: $subtitleColor) {
+                Text("White").tag(Color.white)
+                Text("Yellow").tag(Color.yellow)
+                Text("Green").tag(Color.green)
+                Text("Red").tag(Color.red)
+                Text("Blue").tag(Color.blue)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: subtitleColor) { oldValue, newValue in
+                videoPlayer.changeSubtitleColor(newValue)
             }
             
             if videoPlayer.availableLanguages().count > 1 {
-                HStack {
-                    Picker("", selection: $language) {
-                        ForEach(videoPlayer.availableLanguages(), id: \.self) { l in
-                            Text(l).tag(l)
-                        }
+                Picker("", selection: $language) {
+                    ForEach(videoPlayer.availableLanguages(), id: \.self) { l in
+                        Text(l).tag(l)
                     }
-                    .pickerStyle(.segmented)
-                    .onChange(of: language) { oldValue, newValue in
-                        videoPlayer.changeLanguage(newValue)
-                    }
-                }.onAppear() {
-                    language = videoPlayer.subtitleLanguage
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: language) { oldValue, newValue in
+                    videoPlayer.changeLanguage(newValue)
                 }
             }
+        }.onAppear() {
+            self.language = videoPlayer.subtitleLanguage
+            self.subtitleColor = videoPlayer.subtitleColor
         }
     }
 }
