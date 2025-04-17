@@ -549,9 +549,9 @@ public class VideoPlayer: Sendable {
                 self.currentSubtitle = self.currentSubtitleEntries[index + 1].text
                 return
             }
-            
-            // Index messed up, recalculate
-            self.updateCurrentSubtitleIndex()
         }
+        
+        // Index messed up, recalculate
+        self.updateCurrentSubtitleIndex()
     }
 }
