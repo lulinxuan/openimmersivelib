@@ -76,7 +76,7 @@ class SubtitleLoader {
 
         for block in blocks {
             let lines = block.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            guard lines.count >= 3 else { continue }
+            guard lines.count >= 2 else { continue }
             
             var timeLineIndex = -1
             for i in 0..<lines.count {
