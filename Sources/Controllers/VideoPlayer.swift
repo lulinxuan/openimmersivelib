@@ -67,8 +67,8 @@ public class VideoPlayer: Sendable {
     ///
     /// This variable is updated by video playback but can be overwritten by a scrubber, in conjunction with `scrubState`.
     public var currentTime: Double = 0 {
-        didSet {
-            if scrubState == .scrubStarted {
+        willSet(newValue) {
+            if scrubState == .scrubStarted && abs(currentTime - newValue) > 1 {
                 self.updatePreviewImageDuringScrubbing()
             }
         }
@@ -111,25 +111,23 @@ public class VideoPlayer: Sendable {
        }
     }
     
+    var imageGenerator: AVAssetImageGenerator! = nil
+
     func updatePreviewImageDuringScrubbing() {
-        if let asset = self.player.currentItem?.asset {
-            let imageGenerator = AVAssetImageGenerator(asset: asset)
-            imageGenerator.appliesPreferredTrackTransform = true
-            imageGenerator.requestedTimeToleranceBefore = .zero
-            imageGenerator.requestedTimeToleranceAfter = .zero
-            
-            do {
-                let seekTime = CMTime(seconds: self.currentTime, preferredTimescale: 1000)
-                imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: seekTime)]) { _, cgImage, _, result, error in
-                    if result == .succeeded, let cgImage = cgImage, let cropped = cropCenter80Percent(of: cgImage) {
-                        let img = Image(uiImage: UIImage(cgImage: cropped))
-                        Task { @MainActor in
-                            self.previewImage = img
-                        }
-                    }
-                }
-            } catch { }
+        if self.imageGenerator == nil {
+            return
         }
+            
+        let seekTime = CMTime(seconds: self.currentTime, preferredTimescale: 1000)
+        imageGenerator.generateCGImageAsynchronously(for: seekTime) { cgImage, _, _ in
+            if let cgImage = cgImage, let cropped = cropCenter80Percent(of: cgImage) {
+                let img = Image(uiImage: UIImage(cgImage: cropped))
+                Task { @MainActor in
+                    self.previewImage = img
+                }
+            }
+        }
+        
     }
     
     //Mark: Subtitle variables
@@ -239,6 +237,10 @@ public class VideoPlayer: Sendable {
         }
         let asset = AVURLAsset(url: stream.url)
         let playerItem = AVPlayerItem(asset: asset)
+
+        self.imageGenerator = AVAssetImageGenerator(asset: asset)
+        self.imageGenerator.appliesPreferredTrackTransform = true
+        
         playerItem.preferredPeakBitRate = 200_000_000 // 200 Mbps LFG!
         player.replaceCurrentItem(with: playerItem)
         scrubState = .notScrubbing
