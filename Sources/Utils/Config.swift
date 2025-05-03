@@ -11,7 +11,7 @@ import SwiftUI
 /// Fetches custom values in the application's openimmersive.plist
 public class Config {
     /// Vertical offset of the control panel in meters (Number): + is up, - is down.
-    public var controlPanelVerticalOffset: Float = -0.5
+    public var controlPanelVerticalOffset: Float = -0.2
     /// Horizontal offset of the control panel in meters (Number): + is forward, - is backward.
     public var controlPanelHorizontalOffset: Float = 0.7
     /// Tilt of the control panel in degrees (Number): + is tilted up, - is tilted down.

@@ -61,10 +61,18 @@ public class VideoPlayer: Sendable {
         }
     }
     
+    private(set) var previewImage: Image? = nil
+
     /// The current time in seconds of the current video (0 if none).
     ///
     /// This variable is updated by video playback but can be overwritten by a scrubber, in conjunction with `scrubState`.
-    public var currentTime: Double = 0
+    public var currentTime: Double = 0 {
+        didSet {
+            if scrubState == .scrubStarted {
+                self.updatePreviewImageDuringScrubbing()
+            }
+        }
+    }
     public enum ScrubState {
         /// The scrubber is not active and reflects the video's current playback time.
         case notScrubbing
@@ -78,11 +86,14 @@ public class VideoPlayer: Sendable {
        didSet {
           switch scrubState {
           case .notScrubbing:
+              self.previewImage = nil
               break
           case .scrubStarted:
+              self.previewImage = nil
               cancelControlPanelTask()
               break
           case .scrubEnded:
+              self.previewImage = nil
               let seekTime = CMTime(seconds: currentTime, preferredTimescale: 1000)
               player.seek(to: seekTime) { [weak self] finished in
                   guard finished else {
@@ -98,6 +109,27 @@ public class VideoPlayer: Sendable {
               break
           }
        }
+    }
+    
+    func updatePreviewImageDuringScrubbing() {
+        if let asset = self.player.currentItem?.asset {
+            let imageGenerator = AVAssetImageGenerator(asset: asset)
+            imageGenerator.appliesPreferredTrackTransform = true
+            imageGenerator.requestedTimeToleranceBefore = .zero
+            imageGenerator.requestedTimeToleranceAfter = .zero
+            
+            do {
+                let seekTime = CMTime(seconds: self.currentTime, preferredTimescale: 1000)
+                imageGenerator.generateCGImagesAsynchronously(forTimes: [NSValue(time: seekTime)]) { _, cgImage, _, result, error in
+                    if result == .succeeded, let cgImage = cgImage, let cropped = cropCenter80Percent(of: cgImage) {
+                        let img = Image(uiImage: UIImage(cgImage: cropped))
+                        Task { @MainActor in
+                            self.previewImage = img
+                        }
+                    }
+                }
+            } catch { }
+        }
     }
     
     //Mark: Subtitle variables

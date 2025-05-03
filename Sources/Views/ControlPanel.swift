@@ -13,6 +13,7 @@ public struct ControlPanel: View {
     /// The singleton video player control interface.
     @Binding var videoPlayer: VideoPlayer
     @State var isShowingSubtitleSection: Bool = true
+    @State var previewImage: Image? = nil
     /// The callback to execute when the user closes the immersive player.
     let closeAction: (() -> Void)?
     
@@ -29,40 +30,56 @@ public struct ControlPanel: View {
         if videoPlayer.shouldShowControlPanel {
             VStack {
                 HStack {
-                    Button("", systemImage: "chevron.backward") {
-                        closeAction?()
+                    if let img = self.previewImage {
+                        img.resizable()
+                            .scaledToFit()
+                            .frame(width: 400, height: 400)
+                            .cornerRadius(16)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .shadow(radius: 16)
                     }
-                    .controlSize(.extraLarge)
-                    .tint(.clear)
-                    .frame(width: 100)
-                    
-                    MediaInfo(videoPlayer: $videoPlayer)
-                    
-                    Button("", systemImage: "captions.bubble") {
-                        videoPlayer.toggleSubtitles()
+                }.frame(width: 400, height: 400)
+                
+                VStack {
+                    HStack {
+                        Button("", systemImage: "chevron.backward") {
+                            closeAction?()
+                        }
+                        .controlSize(.extraLarge)
+                        .tint(.clear)
+                        .frame(width: 100)
+                        
+                        MediaInfo(videoPlayer: $videoPlayer)
+                        
+                        Button("", systemImage: "captions.bubble") {
+                            videoPlayer.toggleSubtitles()
+                        }
+                        .symbolRenderingMode(videoPlayer.shouldShowSubtitles ? .palette : .hierarchical)
+                        .foregroundStyle(.white, .blue)
+                        .controlSize(.extraLarge)
+                        .tint(.clear)
+                        .frame(width: 100)
                     }
-                    .symbolRenderingMode(videoPlayer.shouldShowSubtitles ? .palette : .hierarchical)
-                    .foregroundStyle(.white, .blue)
-                    .controlSize(.extraLarge)
-                    .tint(.clear)
-                    .frame(width: 100)
-                }
-                
-                if videoPlayer.shouldShowSubtitles {
-                    SubtitleButtons(videoPlayer: videoPlayer)
-                        .animation(.easeInOut(duration: 0.2), value: videoPlayer.shouldShowSubtitles)
-                }
-                
-                HStack {
-                    PlaybackButtons(videoPlayer: videoPlayer)
                     
-                    Scrubber(videoPlayer: $videoPlayer)
+                    if videoPlayer.shouldShowSubtitles {
+                        SubtitleButtons(videoPlayer: videoPlayer)
+                            .animation(.easeInOut(duration: 0.2), value: videoPlayer.shouldShowSubtitles)
+                    }
                     
-                    TimeText(videoPlayer: videoPlayer)
+                    HStack {
+                        PlaybackButtons(videoPlayer: videoPlayer)
+                        
+                        Scrubber(videoPlayer: $videoPlayer)
+                        
+                        TimeText(videoPlayer: videoPlayer)
+                    }
                 }
+                .padding()
+                .glassBackgroundEffect()
             }
-            .padding()
-            .glassBackgroundEffect()
+            .onChange(of: self.videoPlayer.previewImage) { oldValue, newValue in
+                self.previewImage = newValue
+            }
         }
     }
 }

@@ -172,3 +172,18 @@ public struct VideoTools {
         return (naturalSize, horizontalFieldOfView)
     }
 }
+
+public func cropCenter80Percent(of image: CGImage) -> CGImage? {
+    let width = image.width
+    let height = image.height
+
+    let cropWidth = Int(Double(width) * 0.8)
+    let cropHeight = Int(Double(height) * 0.8)
+
+    let originX = (width - cropWidth) / 2
+    let originY = (height - cropHeight) / 2
+
+    let cropRect = CGRect(x: originX, y: originY, width: cropWidth, height: cropHeight)
+
+    return image.cropping(to: cropRect)
+}
