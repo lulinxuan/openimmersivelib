@@ -28,6 +28,8 @@ public class VideoPlayer: Sendable {
     private(set) var buffering: Bool = false
     /// `true` if playback reached the end of the video and is no longer playing.
     private(set) var hasReachedEnd: Bool = false
+    /// The callback to execute when playback reaches the end of the video.
+    public var playbackEndedAction: (() -> Void)?
     /// The aspect ratio of the current media (width / height).
     private(set) var aspectRatio: Float = 1.0
     /// The horizontal field of view for the current media
@@ -35,6 +37,8 @@ public class VideoPlayer: Sendable {
     /// The vertical field of view for the current media
     public var verticalFieldOfView: Float {
         get {
+            // some 180/360 videos are originally encoded with non-square pixels, so don't use the aspect ratio for those.
+            if self.horizontalFieldOfView >= 180.0 { return 180.0 }
             return max(0, min(180, self.horizontalFieldOfView / aspectRatio))
         }
     }
@@ -127,13 +131,14 @@ public class VideoPlayer: Sendable {
     
     //MARK: Public methods
     /// Public initializer for visibility.
-    public init(title: String = "", details: String = "", duration: Double = 0, paused: Bool = false, buffering: Bool = false, hasReachedEnd: Bool = false, aspectRatio: Float? = nil, horizontalFieldOfView: Float? = nil, bitrate: Double = 0, shouldShowControlPanel: Bool = true, currentTime: Double = 0, scrubState: VideoPlayer.ScrubState = .notScrubbing, timeObserver: Any? = nil, durationObserver: NSKeyValueObservation? = nil, bufferingObserver: NSKeyValueObservation? = nil, dismissControlPanelTask: Task<Void, Never>? = nil) {
+    public init(title: String = "", details: String = "", duration: Double = 0, paused: Bool = false, buffering: Bool = false, hasReachedEnd: Bool = false, playbackEndedAction: (() -> Void)? = nil, aspectRatio: Float? = nil, horizontalFieldOfView: Float? = nil, bitrate: Double = 0, shouldShowControlPanel: Bool = true, currentTime: Double = 0, scrubState: VideoPlayer.ScrubState = .notScrubbing, timeObserver: Any? = nil, durationObserver: NSKeyValueObservation? = nil, bufferingObserver: NSKeyValueObservation? = nil, dismissControlPanelTask: Task<Void, Never>? = nil) {
         self.title = title
         self.details = details
         self.duration = duration
         self.paused = paused
         self.buffering = buffering
         self.hasReachedEnd = hasReachedEnd
+        self.playbackEndedAction = playbackEndedAction
         if let aspectRatio { self.aspectRatio = aspectRatio }
         if let horizontalFieldOfView { self.horizontalFieldOfView = horizontalFieldOfView }
         self.bitrate = bitrate
@@ -385,6 +390,7 @@ public class VideoPlayer: Sendable {
             hasReachedEnd = true
             paused = true
             showControlPanel()
+            self.playbackEndedAction?()
         }
     }
     
