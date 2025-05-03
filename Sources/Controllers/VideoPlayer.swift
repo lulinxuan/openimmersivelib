@@ -63,12 +63,16 @@ public class VideoPlayer: Sendable {
     
     private(set) var previewImage: Image? = nil
 
+    public var lastGeneratePreviewTime: Date = Date()
+    
     /// The current time in seconds of the current video (0 if none).
     ///
     /// This variable is updated by video playback but can be overwritten by a scrubber, in conjunction with `scrubState`.
     public var currentTime: Double = 0 {
-        willSet(newValue) {
-            if scrubState == .scrubStarted && abs(currentTime - newValue) > 1 {
+        didSet {
+            let currentDate = Date()
+            if scrubState == .scrubStarted && currentDate.timeIntervalSince(lastGeneratePreviewTime) > 0.1 {
+                lastGeneratePreviewTime = currentDate
                 self.updatePreviewImageDuringScrubbing()
             }
         }
