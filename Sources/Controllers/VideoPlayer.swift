@@ -30,6 +30,7 @@ public class VideoPlayer: Sendable {
     private(set) var hasReachedEnd: Bool = false
     /// The callback to execute when playback reaches the end of the video.
     public var playbackEndedAction: (() -> Void)?
+    public var sendBulletAction: ((String, Double) -> Void)?
     /// The aspect ratio of the current media (width / height).
     private(set) var aspectRatio: Float = 1.0
     /// The horizontal field of view for the current media
@@ -107,6 +108,7 @@ public class VideoPlayer: Sendable {
                       self?.scrubState = .notScrubbing
                       self?.restartControlPanelTask()
                       self?.updateCurrentSubtitleIndex()
+                      self?.updateCurrentBulletIndex()
                   }
               }
               hasReachedEnd = false
@@ -137,6 +139,8 @@ public class VideoPlayer: Sendable {
     //Mark: Subtitle variables
     /// Controls whether to show subtitles. Will be false if no subtitle file is provided
     private(set) var shouldShowSubtitles: Bool = false
+    private(set) var shouldShowBullets: Bool = true
+
     /// Font size of subtitle
     private(set) var subtitleFontSize: CGFloat = 28
     /// Color of subtitle
@@ -145,7 +149,7 @@ public class VideoPlayer: Sendable {
     private(set) var currentSubtitlesLanguage: String = ""
     /// Current line of subtitle showing
     private(set) var currentSubtitle: String? = nil
-    
+        
     //MARK: Private variables
     private var timeObserver: Any?
     private var durationObserver: NSKeyValueObservation?
@@ -156,6 +160,11 @@ public class VideoPlayer: Sendable {
     private var currentSubtitleEntries: [SubtitleEntry] = []
     private var languageToSubtitleFiles: [SubtitleFileType: [String: URL]]? = nil
     private var languageToSubtitleEntries: [String:[SubtitleEntry]?] = [:]
+    private var videoBullets: [BulletEntry] = []
+    private var currentVideoBulletIndex: Int = -1
+
+    public var currentBullets: [String] = []
+
 
     //MARK: Immutable variables
     /// The video player
@@ -165,7 +174,7 @@ public class VideoPlayer: Sendable {
     
     //MARK: Public methods
     /// Public initializer for visibility.
-    public init(title: String = "", details: String = "", duration: Double = 0, paused: Bool = false, buffering: Bool = false, hasReachedEnd: Bool = false, playbackEndedAction: (() -> Void)? = nil, aspectRatio: Float? = nil, horizontalFieldOfView: Float? = nil, bitrate: Double = 0, shouldShowControlPanel: Bool = true, currentTime: Double = 0, scrubState: VideoPlayer.ScrubState = .notScrubbing, timeObserver: Any? = nil, durationObserver: NSKeyValueObservation? = nil, bufferingObserver: NSKeyValueObservation? = nil, dismissControlPanelTask: Task<Void, Never>? = nil) {
+    public init(title: String = "", details: String = "", duration: Double = 0, paused: Bool = false, buffering: Bool = false, hasReachedEnd: Bool = false, playbackEndedAction: (() -> Void)? = nil, sendBulletAction: ((String, Double) -> Void)? = nil, aspectRatio: Float? = nil, horizontalFieldOfView: Float? = nil, bitrate: Double = 0, shouldShowControlPanel: Bool = true, currentTime: Double = 0, scrubState: VideoPlayer.ScrubState = .notScrubbing, timeObserver: Any? = nil, durationObserver: NSKeyValueObservation? = nil, bufferingObserver: NSKeyValueObservation? = nil, dismissControlPanelTask: Task<Void, Never>? = nil) {
         self.title = title
         self.details = details
         self.duration = duration
@@ -173,6 +182,7 @@ public class VideoPlayer: Sendable {
         self.buffering = buffering
         self.hasReachedEnd = hasReachedEnd
         self.playbackEndedAction = playbackEndedAction
+        self.sendBulletAction = sendBulletAction
         if let aspectRatio { self.aspectRatio = aspectRatio }
         if let horizontalFieldOfView { self.horizontalFieldOfView = horizontalFieldOfView }
         self.bitrate = bitrate
@@ -215,6 +225,12 @@ public class VideoPlayer: Sendable {
         }
     }
     
+    public func toggleBullets() {
+        withAnimation {
+            shouldShowBullets.toggle()
+        }
+    }
+    
     /// Instruct the UI to toggle the visibility of resolutions options.
     ///
     /// This will only do something if resolution options are available.
@@ -235,6 +251,7 @@ public class VideoPlayer: Sendable {
         
         title = stream.title
         details = stream.details
+        self.videoBullets = stream.videoBullets
         self.languageToSubtitleFiles = stream.languageToSubtitleFiles
         if let firstLanguage = self.languageToSubtitleFiles?.first?.value.first?.key {
             self.loadSubtitles(language: firstLanguage)
@@ -340,6 +357,7 @@ public class VideoPlayer: Sendable {
         if hasReachedEnd {
             player.seek(to: CMTime.zero)
             self.updateCurrentSubtitleIndex()
+            self.updateCurrentBulletIndex()
         }
         player.play()
         paused = false
@@ -364,6 +382,7 @@ public class VideoPlayer: Sendable {
         player.seek(to: newTime)
         restartControlPanelTask()
         self.updateCurrentSubtitleIndex()
+        self.updateCurrentBulletIndex()
     }
     
     /// Jump forward 15 seconds in media playback.
@@ -376,6 +395,7 @@ public class VideoPlayer: Sendable {
         player.seek(to: newTime)
         restartControlPanelTask()
         self.updateCurrentSubtitleIndex()
+        self.updateCurrentBulletIndex()
     }
     
     /// Plus font
@@ -454,6 +474,7 @@ public class VideoPlayer: Sendable {
                         case .notScrubbing:
                             self.currentTime = time.seconds
                             self.updateCurrentSubtitleDuringPlay()
+                            self.displayBulletDuringPlay()
                             break
                         case .scrubStarted: return
                         case .scrubEnded: return
@@ -609,5 +630,38 @@ public class VideoPlayer: Sendable {
         
         // Index messed up, recalculate
         self.updateCurrentSubtitleIndex()
+    }
+    
+    
+    private func updateCurrentBulletIndex() {
+        if !self.shouldShowBullets {
+            return
+        }
+        let currentTime = self.currentTime
+        if let bulletIndex = self.videoBullets.lastIndex(where: {
+            currentTime >= $0.time}) {
+            self.currentVideoBulletIndex = bulletIndex 
+            self.currentBullets = []
+        } else {
+            self.currentVideoBulletIndex = -1
+            self.currentBullets = []
+        }
+    }
+    
+    private func displayBulletDuringPlay(){
+        if !self.shouldShowBullets {
+            return
+        }
+        let currentTime = self.currentTime
+        if self.currentVideoBulletIndex != nil {
+            while self.videoBullets.count > self.currentVideoBulletIndex + 1 && currentTime >= self.videoBullets[self.currentVideoBulletIndex + 1].time {
+                self.currentVideoBulletIndex = self.currentVideoBulletIndex + 1
+                self.currentBullets.append(self.videoBullets[self.currentVideoBulletIndex].text)
+            }
+            return
+        }
+        
+        // Index messed up, recalculate
+        self.updateCurrentBulletIndex()
     }
 }

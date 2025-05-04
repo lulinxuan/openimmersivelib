@@ -41,6 +41,7 @@ public struct SpatialVideoPicker: View {
                         let stream = StreamModel(
                             title: video.url.lastPathComponent,
                             details: "From Local Gallery",
+                            videoId: -1,
                             url: video.url,
                             isSecurityScoped: false
                         )

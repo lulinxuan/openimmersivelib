@@ -107,6 +107,7 @@ public struct StreamUrlInput: View {
         let stream = StreamModel(
             title: "Pasted Stream",
             details: url.absoluteString,
+            videoId: -1,
             url: url,
             isSecurityScoped: false
         )

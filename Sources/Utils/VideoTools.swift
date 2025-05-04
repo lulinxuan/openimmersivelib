@@ -6,6 +6,7 @@
 //
 
 import RealityKit
+import SwiftUI
 @preconcurrency import AVFoundation
 
 @MainActor
@@ -171,6 +172,16 @@ public struct VideoTools {
         let horizontalFieldOfView = Float(rawHorizontalFieldOfView) / 1000.0
         return (naturalSize, horizontalFieldOfView)
     }
+    
+    public static func createTextModel(text: String, color: UIColor) -> ModelEntity{
+        let text = ModelEntity(mesh: .generateText(text,
+                                                   extrusionDepth: 0.003,
+                                                             font: .systemFont(ofSize: 0.08),
+                                                   containerFrame: CGRect.zero,
+                                                   alignment: .natural,
+                                                   lineBreakMode: .byCharWrapping), materials: [UnlitMaterial(color: UIColor.random)])
+        return text
+    }
 }
 
 public func cropCenter80Percent(of image: CGImage) -> CGImage? {
@@ -186,4 +197,15 @@ public func cropCenter80Percent(of image: CGImage) -> CGImage? {
     let cropRect = CGRect(x: originX, y: originY, width: cropWidth, height: cropHeight)
 
     return image.cropping(to: cropRect)
+}
+
+extension UIColor {
+    static var random: UIColor {
+        UIColor(
+            red: .random(in: 0...1),
+            green: .random(in: 0...1),
+            blue: .random(in: 0...1),
+            alpha: 1
+        )
+    }
 }

@@ -41,25 +41,39 @@ public struct ControlPanel: View {
                 }.frame(width: 400, height: 400)
                 
                 VStack {
-                    HStack {
+                    HStack(spacing: 24) {
                         Button("", systemImage: "chevron.backward") {
                             closeAction?()
                         }
                         .controlSize(.extraLarge)
                         .tint(.clear)
-                        .frame(width: 100)
                         
                         MediaInfo(videoPlayer: $videoPlayer)
                         
-                        Button("", systemImage: "captions.bubble") {
+                        Button {
                             videoPlayer.toggleSubtitles()
-                        }
-                        .symbolRenderingMode(videoPlayer.shouldShowSubtitles ? .palette : .hierarchical)
-                        .foregroundStyle(.white, .blue)
-                        .controlSize(.extraLarge)
-                        .tint(.clear)
-                        .frame(width: 100)
-                    }
+                        } label: {
+                            VStack {
+                                Image(systemName: "captions.bubble")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(videoPlayer.shouldShowSubtitles ? .blue : .gray)
+                                
+                                Text("Subtitle")
+                            }
+                        }.buttonStyle(.plain)
+                        
+                        Button {
+                            videoPlayer.toggleBullets()
+                        } label: {
+                            VStack {
+                                Image(systemName: "list.bullet.rectangle")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(videoPlayer.shouldShowBullets ? .blue : .gray)
+                                
+                                Text("Bullets")
+                            }
+                        }.buttonStyle(.plain)
+                    }.padding(.horizontal)
                     
                     if videoPlayer.shouldShowSubtitles {
                         SubtitleButtons(videoPlayer: videoPlayer)
@@ -72,6 +86,11 @@ public struct ControlPanel: View {
                         Scrubber(videoPlayer: $videoPlayer)
                         
                         TimeText(videoPlayer: videoPlayer)
+                    }
+                    
+                    if videoPlayer.shouldShowBullets {
+                        BulletView(videoPlayer: videoPlayer)
+                            .animation(.easeInOut(duration: 0.2), value: videoPlayer.shouldShowBullets)
                     }
                 }
                 .padding()
@@ -226,6 +245,60 @@ fileprivate struct PlaybackButtons: View {
             .controlSize(.extraLarge)
             .tint(.clear)
             .frame(width: 100)
+        }
+    }
+}
+
+fileprivate struct BulletView: View {
+    @State var bullet = ""
+    @FocusState private var isFocused: Bool
+
+    var videoPlayer: VideoPlayer
+    
+    var body: some View {
+        HStack(alignment: .top) {
+            TextEditor(text: $bullet)
+                .padding(8)
+                .font(.system(size: 30))
+                .frame(height: isFocused ? 120 : 50)
+                .focused($isFocused)
+                .foregroundColor(.white)
+                .background(
+                    ZStack {
+                        Color(.systemGray).opacity(0.7)
+                        
+                        if bullet.isEmpty {
+                            Text("Say something...")
+                                .foregroundColor(.white)
+                                .padding(.top, 8)
+                                .padding(.leading, 4)
+                                .transition(.opacity)
+                        }
+                    }.cornerRadius(10)
+                        .shadow(radius: 12)
+                )
+                .animation(.easeInOut, value: isFocused)
+            
+            if !bullet.isEmpty {
+                Button {
+                    self.videoPlayer.sendBulletAction?(self.bullet, self.videoPlayer.currentTime)
+                    self.videoPlayer.currentBullets.append(self.bullet)
+                    self.bullet = ""
+                    self.isFocused = false
+                } label: {
+                    Label("Send", systemImage: "bubble")
+                        .padding()
+                        .foregroundColor(.green)
+                        .background(RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.green, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 16))
+                }.buttonStyle(.plain)
+                    .animation(.easeInOut, value: bullet)
+                    .frame(width: 140, height: 60)
+            } else if self.isFocused {
+                VStack{}.frame(width: 140, height: 60)
+            }
         }
     }
 }

@@ -35,6 +35,7 @@ public struct FilePicker: View {
                 let stream = StreamModel(
                     title: url.lastPathComponent,
                     details: "From Local Files",
+                    videoId: -1,
                     url: url,
                     isSecurityScoped: url.startAccessingSecurityScopedResource()
                 )

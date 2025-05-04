@@ -34,18 +34,22 @@ public struct ImmersivePlayer: View {
     ///   - selectedStream: the stream for which the player will be open.
     ///   - closeAction: the callback to execute when the user closes the immersive player.
     ///   - playbackEndedAction: the callback to execute when playback reaches the end of the video.
-    public init(selectedStream: StreamModel, closeAction: (() -> Void)? = nil, playbackEndedAction: (() -> Void)? = nil) {
+    public init(selectedStream: StreamModel, closeAction: (() -> Void)? = nil, playbackEndedAction: (() -> Void)? = nil, sendBulletAction: ((String, Double) -> Void)? = nil) {
         self.selectedStream = selectedStream
         self.closeAction = closeAction
         self.videoPlayer.playbackEndedAction = playbackEndedAction
+        self.videoPlayer.sendBulletAction = sendBulletAction
     }
     
     public var body: some View {
         RealityView { content, attachments in
             let config = Config.shared
+            let root = Entity()
+
+            root.name = "Root"
+            root.position = [0.0, 1.2, 0.0]
             
             // Setup root entity that will remain static relatively to the head
-            let root = makeRootEntity()
             content.add(root)
             headTracker.start(content: content) { _ in
                 guard let headTransform = headTracker.transform else {
@@ -79,6 +83,10 @@ public struct ImmersivePlayer: View {
         } update: { content, attachments in
             if let progressView = attachments.entity(for: "ProgressView") {
                 progressView.isEnabled = videoPlayer.buffering
+            }
+            if !self.videoPlayer.currentBullets.isEmpty {
+                let bullet = self.videoPlayer.currentBullets.removeFirst()
+                self.playBullet(text: bullet, content: content)
             }
         } placeholder: {
             ProgressView()
@@ -130,16 +138,6 @@ public struct ImmersivePlayer: View {
         )
     }
     
-    /// Programmatically generates the root entity for the RealityView scene, and positions it at `(0, 1.2, 0)`,
-    /// which is a typical position for a viewer's head while sitting on a chair.
-    /// - Returns: a new root entity.
-    private func makeRootEntity() -> some Entity {
-        let entity = Entity()
-        entity.name = "Root"
-        entity.position = [0.0, 1.2, 0.0] // Origin would be the floor.
-        return entity
-    }
-    
     /// Programmatically generates a tap catching entity in the shape of a large invisible box in front of the viewer.
     /// Taps captured by this invisible shape will toggle the control panel on and off.
     /// - Parameters:
@@ -161,5 +159,26 @@ public struct ImmersivePlayer: View {
         entity.components.set(InputTargetComponent())
         
         return entity
+    }
+    
+    @MainActor
+    private func playBullet(text: String, content: RealityViewContent) {
+        let text = VideoTools.createTextModel(text: text, color: .random)
+        text.position = [Float.random(in: -2.4 ... -2.2), Float.random(in: -0.8...0.8) + 1.2, Float.random(in: -3 ... -2.4)]
+        content.add(text)
+        let move = FromToByAnimation<Transform>(
+            name: "move",
+            to: .init(scale:  text.scale, rotation: text.orientation, translation: SIMD3<Float>(text.position.x + 4.6, text.position.y, text.position.z)),
+            duration: 10,
+            timing: .cubicBezier(controlPoint1: SIMD2<Float>(0.1, 0.3), controlPoint2: SIMD2<Float>(0.9, 0.7)),
+            bindTarget: .transform
+        )
+        let resource = try! AnimationResource.generate(with: move)
+        text.playAnimation(resource, transitionDuration: 10, startsPaused: false)
+        Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { _ in
+            Task {@MainActor in
+                text.removeFromParent()
+            }
+        }
     }
 }
