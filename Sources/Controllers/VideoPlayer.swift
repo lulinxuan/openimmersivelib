@@ -379,10 +379,16 @@ public class VideoPlayer: Sendable {
         }
         let newTime = time - CMTime(seconds: 15.0, preferredTimescale: 1000)
         hasReachedEnd = false
-        player.seek(to: newTime)
+        player.seek(to: newTime) { [weak self] finished in
+            guard finished else {
+                return
+            }
+            Task { @MainActor in
+                self?.updateCurrentSubtitleIndex()
+                self?.updateCurrentBulletIndex()
+            }
+        }
         restartControlPanelTask()
-        self.updateCurrentSubtitleIndex()
-        self.updateCurrentBulletIndex()
     }
     
     /// Jump forward 15 seconds in media playback.
@@ -392,10 +398,16 @@ public class VideoPlayer: Sendable {
         }
         let newTime = time + CMTime(seconds: 15.0, preferredTimescale: 1000)
         hasReachedEnd = false
-        player.seek(to: newTime)
+        player.seek(to: newTime) { [weak self] finished in
+            guard finished else {
+                return
+            }
+            Task { @MainActor in
+                self?.updateCurrentSubtitleIndex()
+                self?.updateCurrentBulletIndex()
+            }
+        }
         restartControlPanelTask()
-        self.updateCurrentSubtitleIndex()
-        self.updateCurrentBulletIndex()
     }
     
     /// Plus font
@@ -541,7 +553,7 @@ public class VideoPlayer: Sendable {
     }
     
     /// Restarts a task with a 10-second timer to auto-hide the control panel.
-    private func restartControlPanelTask() {
+    public func restartControlPanelTask() {
         cancelControlPanelTask()
         dismissControlPanelTask = Task {
             try? await Task.sleep(for: .seconds(10))
@@ -553,7 +565,7 @@ public class VideoPlayer: Sendable {
     }
     
     /// Cancels the current task to dismiss the control panel, if any.
-    private func cancelControlPanelTask() {
+    public func cancelControlPanelTask() {
         dismissControlPanelTask?.cancel()
         dismissControlPanelTask = nil
     }
@@ -633,14 +645,14 @@ public class VideoPlayer: Sendable {
     }
     
     
-    private func updateCurrentBulletIndex() {
+    private func updateCurrentBulletIndex(newSecond: Double? = nil) {
         if !self.shouldShowBullets {
             return
         }
-        let currentTime = self.currentTime
+        let currentTime = newSecond ?? self.currentTime
         if let bulletIndex = self.videoBullets.lastIndex(where: {
             currentTime >= $0.time}) {
-            self.currentVideoBulletIndex = bulletIndex 
+            self.currentVideoBulletIndex = bulletIndex
             self.currentBullets = []
         } else {
             self.currentVideoBulletIndex = -1

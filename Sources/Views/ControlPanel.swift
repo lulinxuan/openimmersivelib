@@ -278,8 +278,15 @@ fileprivate struct BulletView: View {
                         .shadow(radius: 12)
                 )
                 .animation(.easeInOut, value: isFocused)
+                .onChange(of: self.isFocused) { oldValue, newValue in
+                    if newValue {
+                        self.videoPlayer.cancelControlPanelTask()
+                    } else {
+                        self.videoPlayer.restartControlPanelTask()
+                    }
+                }
             
-            if !bullet.isEmpty {
+            if self.isFocused {
                 Button {
                     self.videoPlayer.sendBulletAction?(self.bullet, self.videoPlayer.currentTime)
                     self.videoPlayer.currentBullets.append(self.bullet)
@@ -296,8 +303,7 @@ fileprivate struct BulletView: View {
                 }.buttonStyle(.plain)
                     .animation(.easeInOut, value: bullet)
                     .frame(width: 140, height: 60)
-            } else if self.isFocused {
-                VStack{}.frame(width: 140, height: 60)
+                    .disabled(bullet.isEmpty)
             }
         }
     }
