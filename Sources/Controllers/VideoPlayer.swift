@@ -31,11 +31,11 @@ public class VideoPlayer: Sendable {
     /// The callback to execute when playback reaches the end of the video.
     public var playbackEndedAction: (() -> Void)?
     public var sendBulletAction: ((String, Double) -> Void)?
-    /// The aspect ratio of the current media (width / height).
+    /// The aspect ratio of the current media (width / height) (equirectangular projection only).
     private(set) var aspectRatio: Float = 1.0
-    /// The horizontal field of view for the current media
+    /// The horizontal field of view for the current media (equirectangular projection only).
     private(set) var horizontalFieldOfView: Float = 180.0
-    /// The vertical field of view for the current media
+    /// The vertical field of view for the current media (equirectangular projection only).
     public var verticalFieldOfView: Float {
         get {
             // some 180/360 videos are originally encoded with non-square pixels, so don't use the aspect ratio for those.
@@ -43,7 +43,7 @@ public class VideoPlayer: Sendable {
             return max(0, min(180, self.horizontalFieldOfView / aspectRatio))
         }
     }
-    /// The bitrate of the current video stream (0 if none).
+    /// The bitrate of the current video stream (0 if none), only available if streaming from a HLS server (m3u8).
     private(set) var bitrate: Double = 0
     /// Resolution options available for the video stream, only available if streaming from a HLS server (m3u8).
     private(set) var resolutionOptions: [ResolutionOption] = []
@@ -169,7 +169,6 @@ public class VideoPlayer: Sendable {
     //MARK: Immutable variables
     /// The video player
     public let player = AVPlayer()
-    public let videoMaterial: VideoMaterial
 
     
     //MARK: Public methods
@@ -193,8 +192,6 @@ public class VideoPlayer: Sendable {
         self.durationObserver = durationObserver
         self.bufferingObserver = bufferingObserver
         self.dismissControlPanelTask = dismissControlPanelTask
-        
-        self.videoMaterial = VideoMaterial(avPlayer: player)
     }
     
     /// Instruct the UI to reveal the control panel.
@@ -207,6 +204,7 @@ public class VideoPlayer: Sendable {
     /// Instruct the UI to hide the control panel.
     public func hideControlPanel() {
         withAnimation {
+            shouldShowResolutionOptions = false
             shouldShowControlPanel = false
         }
     }
@@ -267,23 +265,19 @@ public class VideoPlayer: Sendable {
         scrubState = .notScrubbing
         setupObservers()
         
-        // Set the video format to the forced field of view as provided by the StreamModel object, if available
-        if let forceFieldOfView = stream.forceFieldOfView {
+        // If the video format is equirectangular, extract the field of view (horizontal & vertical) and aspect ratio
+        if case .equirectangular(let fieldOfView, let forceFov) = stream.projection {
+            horizontalFieldOfView = max(0, min(360, fieldOfView))
             // Detect resolution and field of view, if available
-            horizontalFieldOfView = max(0, min(360, forceFieldOfView))
-        } else {
-            // Set the video format to the fallback field of view as provided by the StreamModel object,
-            // then detect resolution and field of view encoded in the media, if available
-            horizontalFieldOfView = max(0, min(360, stream.fallbackFieldOfView))
             Task { [self] in
                 guard let (resolution, horizontalFieldOfView) =
                         await VideoTools.getVideoDimensions(asset: asset) else {
                     return
                 }
-                if let horizontalFieldOfView {
+                self.aspectRatio = Float(resolution.width / resolution.height)
+                if !forceFov, let horizontalFieldOfView {
                     self.horizontalFieldOfView = max(0, min(360, horizontalFieldOfView))
                 }
-                self.aspectRatio = Float(resolution.width / resolution.height)
             }
         }
         
@@ -295,7 +289,9 @@ public class VideoPlayer: Sendable {
                 Task { @MainActor in
                     if case .success = reader.state,
                        reader.resolutions.count > 0 {
-                        self.resolutionOptions = reader.resolutions
+                        self.resolutionOptions = reader.resolutions.sorted(by: { lhs, rhs in
+                            lhs.bitrate < rhs.bitrate
+                        })
                         let defaultResolution = reader.resolutions.first!.size
                         self.aspectRatio = Float(defaultResolution.width / defaultResolution.height)
                     }
@@ -313,13 +309,13 @@ public class VideoPlayer: Sendable {
             return
         }
         
+        withAnimation {
+            shouldShowResolutionOptions = false
+        }
+        
         guard asset.url != url else {
             // already playing the correct url
             return
-        }
-        
-        withAnimation {
-            shouldShowResolutionOptions = false
         }
         
         // temporarily stop the observers to stop them from interfering in the state changes
@@ -372,12 +368,10 @@ public class VideoPlayer: Sendable {
         restartControlPanelTask()
     }
     
-    /// Jump back 15 seconds in media playback.
-    public func minus15() {
-        guard let time = player.currentItem?.currentTime() else {
-            return
-        }
-        let newTime = time - CMTime(seconds: 15.0, preferredTimescale: 1000)
+    /// Jump to a specific time in media playback.
+    /// - Parameters:
+    ///   - newTime: the playback time to jump to.
+    public func seek(to newTime: CMTime) {
         hasReachedEnd = false
         player.seek(to: newTime) { [weak self] finished in
             guard finished else {
@@ -391,23 +385,27 @@ public class VideoPlayer: Sendable {
         restartControlPanelTask()
     }
     
+    /// Jump to a specific time in media playback.
+    /// - Parameters:
+    ///   - newTime: the playback time to jump to, in seconds from the start.
+    public func seek(to newTime: Double) {
+        seek(to: CMTime(seconds: newTime, preferredTimescale: 1000))
+    }
+    
+    /// Jump back 15 seconds in media playback.
+    public func minus15() {
+        guard let time = player.currentItem?.currentTime() else {
+            return
+        }
+        seek(to: time - CMTime(seconds: 15.0, preferredTimescale: 1000))
+    }
+    
     /// Jump forward 15 seconds in media playback.
     public func plus15() {
         guard let time = player.currentItem?.currentTime() else {
             return
         }
-        let newTime = time + CMTime(seconds: 15.0, preferredTimescale: 1000)
-        hasReachedEnd = false
-        player.seek(to: newTime) { [weak self] finished in
-            guard finished else {
-                return
-            }
-            Task { @MainActor in
-                self?.updateCurrentSubtitleIndex()
-                self?.updateCurrentBulletIndex()
-            }
-        }
-        restartControlPanelTask()
+        seek(to: time + CMTime(seconds: 15.0, preferredTimescale: 1000))
     }
     
     /// Plus font
@@ -665,15 +663,9 @@ public class VideoPlayer: Sendable {
             return
         }
         let currentTime = self.currentTime
-        if self.currentVideoBulletIndex != nil {
-            while self.videoBullets.count > self.currentVideoBulletIndex + 1 && currentTime >= self.videoBullets[self.currentVideoBulletIndex + 1].time {
-                self.currentVideoBulletIndex = self.currentVideoBulletIndex + 1
-                self.currentBullets.append(self.videoBullets[self.currentVideoBulletIndex].text)
-            }
-            return
+        while self.videoBullets.count > self.currentVideoBulletIndex + 1 && currentTime >= self.videoBullets[self.currentVideoBulletIndex + 1].time {
+            self.currentVideoBulletIndex = self.currentVideoBulletIndex + 1
+            self.currentBullets.append(self.videoBullets[self.currentVideoBulletIndex].text)
         }
-        
-        // Index messed up, recalculate
-        self.updateCurrentBulletIndex()
     }
 }

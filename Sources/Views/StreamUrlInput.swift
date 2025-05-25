@@ -12,7 +12,13 @@ public struct StreamUrlInput: View {
     /// The visibility of the sheet.
     @State private var isSheetShowing: Bool = false
     /// The current value of the text field.
-    @State private var textfieldVal: String = ""
+    @State private var textfieldRawVal: String = ""
+    /// The cleaned up value of the text field.
+    private var textfieldVal: String {
+        get {
+            textfieldRawVal.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
     /// The URL validity of the current value of the text field. The "Play Stream" button is only active if this is `true`.
     ///
     /// The URL verification is very lenient and will mostly catch obvious accidental inputs.
@@ -36,11 +42,11 @@ public struct StreamUrlInput: View {
             VStack {
                 HStack {
                     Button("", systemImage: "xmark", role: .cancel) {
-                        textfieldVal = ""
+                        textfieldRawVal = ""
                         isSheetShowing = false
                     }
                     
-                    Text("Enter or paste a stream URL (.m3u/.m3u8)")
+                    Text("Enter or paste a HLS stream URL (.m3u/.m3u8)")
                         .font(.headline)
                         .padding()
                     
@@ -49,7 +55,7 @@ public struct StreamUrlInput: View {
                 .padding()
                 
                 HStack {
-                    TextField("Stream URL", text: $textfieldVal)
+                    TextField("Stream URL", text: $textfieldRawVal)
                         .textFieldStyle(.roundedBorder)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
@@ -59,15 +65,16 @@ public struct StreamUrlInput: View {
                     
                     Button("", systemImage: "list.clipboard") {
                         if let str = UIPasteboard.general.string {
-                            textfieldVal = str
+                            textfieldRawVal = str
                         }
                     }
                 }
                 .padding()
                 
                 HStack {
-                    Button("Play Stream", systemImage: "play.rectangle.fill") {
+                    Button("Load Stream", systemImage: "play.rectangle.fill") {
                         loadStream()
+                        isSheetShowing = false
                     }
                     .disabled(!isUrlValid)
                 }
@@ -105,7 +112,7 @@ public struct StreamUrlInput: View {
         }
         
         let stream = StreamModel(
-            title: "Pasted Stream",
+            title: "HLS Stream",
             details: url.absoluteString,
             videoId: -1,
             url: url,

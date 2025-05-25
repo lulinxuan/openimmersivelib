@@ -188,15 +188,23 @@ fileprivate struct ResolutionSelector: View {
             if videoPlayer.shouldShowResolutionOptions {
                 Spacer()
                 
-                Button("Auto") {
+                Button {
                     videoPlayer.openResolutionOption(index: -1)
+                } label: {
+                    Text("Auto")
+                        .font(.headline)
                 }
                 
                 let options = videoPlayer.resolutionOptions
                 let zippedOptions = Array(zip(options.indices, options))
                 ForEach(zippedOptions, id: \.0) { index, option in
-                    Button(option.description) {
+                    Button {
                         videoPlayer.openResolutionOption(index: index)
+                    } label: {
+                        Text(option.resolutionString)
+                            .font(.subheadline)
+                        Text(option.bitrateString)
+                            .font(.caption)
                     }
                 }
             }
@@ -391,24 +399,38 @@ fileprivate struct TimeText: View {
     var videoPlayer: VideoPlayer
     
     var body: some View {
-        let timeStr = {
-            guard videoPlayer.duration > 0 else {
-                return "--:-- / --:--"
-            }
-            let currentTime = Duration
-                .seconds(videoPlayer.currentTime)
-                .formatted(.time(pattern: .minuteSecond))
-            let duration = Duration
-                .seconds(videoPlayer.duration)
-                .formatted(.time(pattern: .minuteSecond))
-            
-            return "\(currentTime) / \(duration)"
-        }()
-        
-        Text(timeStr)
+        Text(timeString)
             .font(.headline)
             .monospacedDigit()
-            .frame(width: 100)
+            .frame(width: frameWidth)
+    }
+    
+    var timeString: String {
+        guard videoPlayer.duration > 0 else {
+            return "--:-- / --:--"
+        }
+        let timeFormat: Duration.TimeFormatStyle = videoPlayer.duration >= 3600 ? .time(pattern: .hourMinuteSecond) : .time(pattern: .minuteSecond)
+        
+        let currentTime = Duration
+            .seconds(videoPlayer.currentTime)
+            .formatted(timeFormat)
+        let duration = Duration
+            .seconds(videoPlayer.duration)
+            .formatted(timeFormat)
+        
+        return "\(currentTime) / \(duration)"
+    }
+    
+    var frameWidth: CGFloat {
+        get {
+            if videoPlayer.duration >= 36_000 {
+                return 200
+            }
+            if videoPlayer.duration >= 3600 {
+                return 180
+            }
+            return 150
+        }
     }
 }
 
