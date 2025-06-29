@@ -7,7 +7,7 @@
 
 import SwiftUI
 import AVFoundation
-import RealityFoundation
+import RealityKit
 
 /// Video Player Controller interfacing the underlying `AVPlayer`, exposing states and controls to the UI.
 // @MainActor ensures properties are published on the main thread
@@ -192,6 +192,22 @@ public class VideoPlayer: Sendable {
         self.durationObserver = durationObserver
         self.bufferingObserver = bufferingObserver
         self.dismissControlPanelTask = dismissControlPanelTask
+        self.configureAudio()
+    }
+    
+    /// Configures the audio session for video playback.
+    private func configureAudio() {
+        do {
+            // Configure the audio session for playback. Set the `moviePlayback` mode
+            // to reduce the audio's dynamic range to help normalize audio levels.
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .moviePlayback, policy: .longFormVideo)
+            try session.setIntendedSpatialExperience(
+                .headTracked(soundStageSize: .automatic, anchoringStrategy: .automatic)
+            )
+        } catch {
+            print("Error: failed to configure audio session: \(error.localizedDescription)")
+        }
     }
     
     /// Instruct the UI to reveal the control panel.
