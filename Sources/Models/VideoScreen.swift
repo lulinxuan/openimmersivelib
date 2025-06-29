@@ -42,7 +42,7 @@ public class VideoScreen {
                     
         case .appleImmersive:
             // the Apple Immersive Video entity should use the identity transform
-            self.updateNativePlayer(videoPlayer)
+            self.updateNativePlayer(videoPlayer, transform: Transform())
         }
     }
     
