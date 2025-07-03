@@ -66,7 +66,7 @@ public class VideoScreen {
      /// Sets up the entity with a VideoPlayerComponent that renders the video natively.
      /// - Parameters:
      ///   - videoPlayer:the VideoPlayer instance
-     private func updateNativePlayer(_ videoPlayer: VideoPlayer, transform: Transform = Transform(translation: [0, 0, -1])) {
+     private func updateNativePlayer(_ videoPlayer: VideoPlayer, transform: Transform = Transform()) {
          let videoPlayerComponent = {
              var videoPlayerComponent = VideoPlayerComponent(avPlayer: videoPlayer.player)
              videoPlayerComponent.desiredViewingMode = .stereo
