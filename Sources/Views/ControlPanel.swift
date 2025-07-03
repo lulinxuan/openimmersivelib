@@ -86,6 +86,23 @@ public struct ControlPanel: View {
                         Scrubber(videoPlayer: $videoPlayer)
                         
                         TimeText(videoPlayer: videoPlayer)
+                        
+                        Button {
+                            videoPlayer.autoResume.toggle()
+                        } label: {
+                            HStack(spacing: 2) {
+                                Image(systemName: videoPlayer.autoResume ? "autostartstop" : "autostartstop.slash")
+                                  .resizable()
+                                  .scaledToFit()
+                                  .frame(width: 44, height: 44)
+                                  .padding(6)
+                                Text("Auto Resume")
+                                    .font(.body)
+                                    .foregroundStyle(.white)
+                                    .padding(6)
+                            }.background(videoPlayer.autoResume ? .blue : .clear)
+                        }
+                        .buttonStyle(ExpandableButtonStyle())
                     }
                     
                     if videoPlayer.shouldShowBullets {
@@ -246,7 +263,7 @@ fileprivate struct PlaybackButtons: View {
                 .tint(.clear)
                 .frame(width: 100)
             }
-            
+
             Button("", systemImage: "goforward.15") {
                 videoPlayer.plus15()
             }
@@ -431,6 +448,22 @@ fileprivate struct TimeText: View {
             }
             return 150
         }
+    }
+}
+
+struct ExpandableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(.thinMaterial)
+            .hoverEffect(.highlight)
+            .hoverEffect { effect, isActive, proxy in
+                effect.clipShape(.capsule.size(
+                    width: isActive ? proxy.size.width : proxy.size.height,
+                    height: proxy.size.height,
+                    anchor: .leading
+                ))
+                .scaleEffect(isActive ? 1.05 : 1.0)
+            }
     }
 }
 

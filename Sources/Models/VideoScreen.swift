@@ -42,7 +42,7 @@ public class VideoScreen {
                     
         case .appleImmersive:
             // the Apple Immersive Video entity should use the identity transform
-            self.updateNativePlayer(videoPlayer, transform: Transform())
+            self.updateNativePlayer(videoPlayer)
         }
     }
     
@@ -66,7 +66,7 @@ public class VideoScreen {
      /// Sets up the entity with a VideoPlayerComponent that renders the video natively.
      /// - Parameters:
      ///   - videoPlayer:the VideoPlayer instance
-     private func updateNativePlayer(_ videoPlayer: VideoPlayer, transform: Transform = .identity) {
+     private func updateNativePlayer(_ videoPlayer: VideoPlayer, transform: Transform = Transform(translation: [0, 0, -1])) {
          let videoPlayerComponent = {
              var videoPlayerComponent = VideoPlayerComponent(avPlayer: videoPlayer.player)
              videoPlayerComponent.desiredViewingMode = .stereo

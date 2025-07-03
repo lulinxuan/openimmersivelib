@@ -24,13 +24,15 @@ public class VideoPlayer: Sendable {
     private(set) var duration: Double = 0
     /// `true` if playback is currently paused, or if playback has completed.
     private(set) var paused: Bool = false
+    /// `true` if playback should auto resume.
+    public var autoResume: Bool = false
     /// `true` if playback is temporarily interrupted due to buffering.
     private(set) var buffering: Bool = false
     /// `true` if playback reached the end of the video and is no longer playing.
     private(set) var hasReachedEnd: Bool = false
     /// The callback to execute when playback reaches the end of the video.
-    public var playbackEndedAction: (() -> Void)?
-    public var sendBulletAction: ((String, Double) -> Void)?
+    public var playbackEndedAction: (() -> Void)? = nil
+    public var sendBulletAction: ((String, Double) -> Void)? = nil
     /// The aspect ratio of the current media (width / height) (equirectangular projection only).
     private(set) var aspectRatio: Float = 1.0
     /// The horizontal field of view for the current media (equirectangular projection only).
@@ -173,26 +175,16 @@ public class VideoPlayer: Sendable {
     
     //MARK: Public methods
     /// Public initializer for visibility.
-    public init(title: String = "", details: String = "", duration: Double = 0, paused: Bool = false, buffering: Bool = false, hasReachedEnd: Bool = false, playbackEndedAction: (() -> Void)? = nil, sendBulletAction: ((String, Double) -> Void)? = nil, aspectRatio: Float? = nil, horizontalFieldOfView: Float? = nil, bitrate: Double = 0, shouldShowControlPanel: Bool = true, currentTime: Double = 0, scrubState: VideoPlayer.ScrubState = .notScrubbing, timeObserver: Any? = nil, durationObserver: NSKeyValueObservation? = nil, bufferingObserver: NSKeyValueObservation? = nil, dismissControlPanelTask: Task<Void, Never>? = nil) {
-        self.title = title
-        self.details = details
-        self.duration = duration
-        self.paused = paused
-        self.buffering = buffering
-        self.hasReachedEnd = hasReachedEnd
-        self.playbackEndedAction = playbackEndedAction
-        self.sendBulletAction = sendBulletAction
-        if let aspectRatio { self.aspectRatio = aspectRatio }
-        if let horizontalFieldOfView { self.horizontalFieldOfView = horizontalFieldOfView }
-        self.bitrate = bitrate
-        self.shouldShowControlPanel = shouldShowControlPanel
-        self.currentTime = currentTime
-        self.scrubState = scrubState
-        self.timeObserver = timeObserver
-        self.durationObserver = durationObserver
-        self.bufferingObserver = bufferingObserver
-        self.dismissControlPanelTask = dismissControlPanelTask
+    public init() {
         self.configureAudio()
+        Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in
+            Task { @MainActor in
+                if !self.hasReachedEnd && self.autoResume {
+                    self.player.play()
+                    self.paused = false
+                }
+            }
+        }
     }
     
     /// Configures the audio session for video playback.
@@ -685,3 +677,4 @@ public class VideoPlayer: Sendable {
         }
     }
 }
+
